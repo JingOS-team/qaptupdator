@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/">
+        <file>qml/main.qml</file>
+        <file>qml/update.qml</file>
+        <file>qml/RoButton.qml</file>
+        <file>qml/Loading.qml</file>
+        <file>image/loading.png</file>
+        <file>image/jingos_logo_update.png</file>
+    </qresource>
+</RCC>
