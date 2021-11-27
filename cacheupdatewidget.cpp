@@ -95,9 +95,7 @@ void CacheUpdateWidget::addItem(const QString &message)
 
 void CacheUpdateWidget::updateDownloadSpeed(quint64 speed)
 {
-    QString downloadSpeed = i18n("Download rate: %1/s",
-                                speed);
-
+    QString downloadSpeed = i18n("Download rate: %1/s", speed);
     m_downloadSpeedLabel->setText(downloadSpeed);
 }
 

@@ -4,15 +4,15 @@
 
 ## qaptupdator
 
- A system upgrade program based on qapt, 
+ A system upgrade program based on qapt,
 
- characteristic: 
+ characteristic:
 
- Implement qapt update 
+ Implement qapt update
 
- Then we run qapt upgrade 
+ Then we run qapt upgrade
 
- The related upgrade interface is implemented to show the  upgrade progress and content. After the upgrade, the device can be  restarted 
+ The related upgrade interface is implemented to show the  upgrade progress and content. After the upgrade, the device can be  restarted
 
 ## Licensing
 

@@ -1,6 +1,7 @@
 /***************************************************************************
  *   Copyright © 2010 Jonathan Thomas <echidnaman@kubuntu.org>             *
  *               2021 Wang Rui <wangrui@jingos.com>                        *
+ *               2021 Bob <pengbo·wu@jingos.com>                           *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or         *
  *   modify it under the terms of the GNU General Public License as        *
@@ -47,150 +48,94 @@
 #include <QApt/Config>
 #include <QApt/Transaction>
 
-
-
 #include <QDebug>
-// Own includes
-// #include "muonapt/MuonStrings.h"
-// #include "TransactionWidget.h"
-// #include "FilterWidget/FilterWidget.h"
-// #include "ManagerWidget.h"
-// #include "ReviewWidget.h"
-// #include "MuonSettings.h"
-// #include "StatusWidget.h"
-// #include "config/ManagerSettingsDialog.h"
-// #include "muonapt/QAptActions.h"
-// Component.onCompleted: {
-//     // 1. check for update
-//     // 2. full upgrade
-// }
+#include <QString>
 
-UpgradeModel::UpgradeModel(QObject *parent)
-    : QObject(parent), m_reloading(false), m_trans(nullptr)
-{
-    qDebug() << "create upgrader, call init";
+UpgradeModel::UpgradeModel(QObject *parent) : QObject(parent), m_reloading(false), m_trans(nullptr) {
     init();
-    qDebug() << "create upgrader, inited";
     QTimer::singleShot(10, this, SLOT(initObject()));
+    qaptupdatorRuning = false;
+
+    QDBusConnection connection = QDBusConnection::sessionBus();
+    connection.registerService("com.jingos.qaptupdator");
+    connection.registerObject("/signals/objects", this, QDBusConnection::ExportAllSlots);
 }
 
 UpgradeModel::~UpgradeModel()
+{}
+
+void UpgradeModel::invokeSendEndSig()
 {
-    // MuonSettings::self()->save();
+    QDBusMessage message = QDBusMessage::createSignal("/signals/objects", "com.jingos.qaptupdator", "sigEnd");
+    QDBusConnection::sessionBus().send(message);
 }
 
 void UpgradeModel::init()
 {
-    updateStatus = 0 ; 
-
-    registSysDlgAction();
+    updateStatus = 0 ;
 
     m_backend = new QApt::Backend(this);
     m_backend->init();
     connect(m_backend, SIGNAL(packageChanged()), this, SLOT(updateStatusBar()));
 }
 
-void UpgradeModel::initObject()
-{
-   
-}
-
-void UpgradeModel::setCurrentVersion(QString version){
-
+void UpgradeModel::setCurrentVersion(QString version) {
     currentVersion = version;
-    qDebug() <<"设置要更新的版本"<< currentVersion;
 }
 
-void UpgradeModel::registSysDlgAction(){    
-        bool rv = QDBusConnection::sessionBus().connect(QString(), 
-        QString("/org/kde/Polkit1AuthAgent"), 
-        "org.kde.Polkit1AuthAgent",                                                    
-        "sigCancel", this, SLOT(slotReceiveDbusCancel()));    
-        if (rv == false){        
-            qWarning() << "dbus connect sigCancel fail";    
-            qDebug() <<"绑定系统对话框失败";
-        }else {
-            qDebug() <<"绑定系统对话框OK";
-        }    
-
-        /* rv = QDBusConnection::sessionBus().connect(QString(), 
-        QString("/org/kde/Polkit1AuthAgent"), 
-        "org.kde.Polkit1AuthAgent",
-        "sigConfirm", 
-        this, 
-        SLOT(slotReceiveDbusConfirm()));    
-        if (rv == false){        
-            
-            qWarning() << "dbus connect sigConfirm fail";    
-            }     */
-          
-          
+void UpgradeModel::registSysDlgAction() {
+    bool rv = QDBusConnection::sessionBus().connect(QString(),
+    QString("/org/kde/Polkit1AuthAgent"),
+    "org.kde.Polkit1AuthAgent",
+    "sigCancel", this, SLOT(slotReceiveDbusCancel()));
 }
 
-void UpgradeModel::slotReceiveDbusCancel(){
-    // Qt.quit();
-    qDebug() <<"绑定系统对话框OK";
+void UpgradeModel::slotReceiveDbusCancel() {
     QApplication* app;
-        app->exit(0);
+    app->exit(0);
 }
 
 void UpgradeModel::updateCache()
 {
-    qDebug() << "*************UpgradeModel::updateCache*********";
-    updateStatus = 1 ; 
-    if (m_trans) // Transaction running, you could queue these though
+    updateStatus = 1 ;
+    if (m_trans)
         return;
-
-    qDebug() << "begin updateCache";
     m_trans = m_backend->updateCache();
-
-    // Provide proxy/locale to the transaction
     if (KProtocolManager::proxyType() == KProtocolManager::ManualProxy) {
         m_trans->setProxy(KProtocolManager::proxyFor("http"));
     }
 
     m_trans->setLocale(QLatin1String(setlocale(LC_MESSAGES, 0)));
 
-    // Pass the new current transaction on to our child widgets
-    // m_cacheUpdateWidget->setTransaction(m_trans);
-    connect(m_trans, SIGNAL(statusChanged(QApt::TransactionStatus)),
-            this, SLOT(onTransactionStatusChanged(QApt::TransactionStatus)));
+    cacheTransaction();
+    connect(m_trans, SIGNAL(statusChanged(QApt::TransactionStatus)), this, SLOT(onTransactionStatusChanged(QApt::TransactionStatus)));
 
     m_trans->run();
+    qaptupdatorRuning = true;
 }
 
 void UpgradeModel::upgrade()
 {
-    qDebug() << "*************UpgradeModel::fullupgrade*********";
-    // qDebug() << "call upgrade";
-    if (m_trans) // Transaction running, you could queue these though
+    if (m_trans) {
         return;
-    qDebug() << "*************UpgradeModel::111111*********";
+    }
     m_trans = m_backend->upgradeSystem(QApt::FullUpgrade);
-    // Provide proxy/locale to the transaction
+
     if (KProtocolManager::proxyType() == KProtocolManager::ManualProxy) {
         m_trans->setProxy(KProtocolManager::proxyFor("http"));
     }
 
     m_trans->setLocale(QLatin1String(setlocale(LC_MESSAGES, 0)));
-
-    // Pass the new current transaction on to our child widgets
-    // m_cacheUpdateWidget->setTransaction(m_trans);
-    // m_commitWidget->setTransaction(m_trans);
-    // cacheTransaction();
     updateUpgradeProcess();
-    qDebug() << "*************UpgradeModel::22222*********";
-    connect(m_trans, SIGNAL(statusChanged(QApt::TransactionStatus)),
-            this, SLOT(onTransactionStatusChanged(QApt::TransactionStatus)));
-
+    connect(m_trans, SIGNAL(statusChanged(QApt::TransactionStatus)), this, SLOT(onTransactionStatusChanged(QApt::TransactionStatus)));
     m_trans->run();
 }
 
 void UpgradeModel::commitAction()
 {
-    qDebug() << "*************UpgradeModel::commitAction*********"; 
-    if (m_trans) // Transaction running, you could queue these though
+    if (m_trans) {
         return;
+    }
 
     if (!m_package->isInstalled()) {
         m_package->setInstall();
@@ -204,20 +149,13 @@ void UpgradeModel::commitAction()
 
     m_trans = m_backend->commitChanges();
 
-    // Provide proxy/locale to the transaction
     if (KProtocolManager::proxyType() == KProtocolManager::ManualProxy) {
         m_trans->setProxy(KProtocolManager::proxyFor("http"));
     }
 
     m_trans->setLocale(QLatin1String(setlocale(LC_MESSAGES, 0)));
 
-    // Pass the new current transaction on to our child widgets
-    // m_cacheUpdateWidget->setTransaction(m_trans);
-    // m_commitWidget->setTransaction(m_trans);
-    // cacheTransaction();
-    // updateUpgradeProcess();
-    connect(m_trans, SIGNAL(statusChanged(QApt::TransactionStatus)),
-            this, SLOT(onTransactionStatusChanged(QApt::TransactionStatus)));
+    connect(m_trans, SIGNAL(statusChanged(QApt::TransactionStatus)), this, SLOT(onTransactionStatusChanged(QApt::TransactionStatus)));
 
     m_trans->run();
 }
@@ -225,122 +163,186 @@ void UpgradeModel::commitAction()
 void UpgradeModel::onTransactionStatusChanged(QApt::TransactionStatus status)
 {
     QString headerText;
-    qDebug() << "current status:" << status;
     switch (status) {
+
     case QApt::RunningStatus:
-        qDebug() << "QApt::RunningStatus::********************"<< m_trans->role();
-        // For roles that start by downloading something, switch to download view
-        if (m_trans->role() == (QApt::UpdateCacheRole || QApt::UpgradeSystemRole ||
-                                QApt::CommitChangesRole || QApt::DownloadArchivesRole ||
-                                QApt::InstallFileRole)) {
-            // m_stack->setCurrentWidget(m_cacheUpdateWidget);
+        if (m_trans->role() == (QApt::UpdateCacheRole || QApt::UpgradeSystemRole || QApt::CommitChangesRole || QApt::DownloadArchivesRole || QApt::InstallFileRole)) {}
+        break;
+
+    case QApt::DownloadingStatus:
+        break;
+
+    case QApt::CommittingStatus:
+        if ( m_trans->downloadProgress().fileSize() > m_trans->downloadProgress().fetchedSize()) {
+            invokeSendEndSig();
+            emit upgradeFinished(2);
+
+            KNotification *notification = new KNotification("SystemUpdateDownLoadFinished", KNotification::CloseOnTimeout);
+            notification->setComponentName("settings_main");
+            notification->setTitle(i18n("System Upgrade"));
+            notification->setText(i18n("An error was encountered while downloading packages"));
+            notification->sendEvent();
+            m_trans->cancel();
+            m_trans->deleteLater();
+        }
+        break;
+
+    case QApt::LoadingCacheStatus:
+        if ( m_trans->downloadProgress().fileSize() > m_trans->downloadProgress().fetchedSize()) {
+            invokeSendEndSig();
+            emit upgradeFinished(2);
+            KNotification *notification = new KNotification("SystemUpdateDownLoadFinished", KNotification::CloseOnTimeout);
+            notification->setComponentName("settings_main");
+            notification->setTitle(i18n("System Upgrade"));
+            notification->setText(i18n("An error was encountered while downloading packages"));
+            notification->sendEvent();
+            m_trans->cancel();
+            m_trans->deleteLater();
+        }
+        break;
+
+    case QApt::FinishedStatus:
+        m_backend->reloadCache();
+
+        if (m_trans->exitStatus()) { //We will send a failed signal when exitStatus is failed
+            qaptupdatorRuning = false;
+            emit upgradeFinished(2);
+            m_trans->cancel();
+            m_trans->deleteLater();
+            return;
         }
 
-        break;
-    case QApt::DownloadingStatus:
-        qDebug() << "QApt::DownloadingStatus:********************";
-        // m_stack->setCurrentWidget(m_cacheUpdateWidget);
-        // cacheTransaction()
-        break;
-    case QApt::CommittingStatus:
-        qDebug() << "QApt::CommittingStatus:********************";
-        updateUpgradeProcess();
-        // m_stack->setCurrentWidget(m_commitWidget);
-        break;
-    case QApt::FinishedStatus:
-        qDebug() << "QApt::FinishedStatus:********************";
-        // FIXME: Determine which transactions need to reload cache on completion
-        m_backend->reloadCache();
-        // m_stack->setCurrentWidget(m_mainWidget);
-        updateStatusBar();
-         m_trans->deleteLater();
+        m_trans->cancel();
+        m_trans->deleteLater();
         m_trans = 0;
 
-        if(updateStatus == 1 ){
+        if (updateStatus == 1 ) {
             updateStatus = 2;
             upgrade();
             emit upgradeStatusChanged(1);
-        } else if(updateStatus == 2){
-            updateStatus = 0 ; 
+        } else if (updateStatus == 2) {
+            qaptupdatorRuning = false;
+            updateStatus = 0;
+            invokeSendEndSig();
             emit upgradeFinished(1);
-            // 
-            qDebug() << "QApt::22222222222222222222222:********************";
-
-            KNotification *notification = new KNotification("FailedToGetSecrets", KNotification::CloseOnTimeout);
-            notification->setComponentName("networkmanagement");
+            KNotification *notification = new KNotification("SystemUpdateDownLoadFinished", KNotification::CloseOnTimeout);
+            notification->setComponentName("settings_main");
             notification->setTitle(i18n("System Upgrade"));
-            notification->setText("System upgrade complete , please restart the device.");
-            notification->setIconName(QStringLiteral("dialog-warning"));
+            notification->setText(i18n("System %1 has been updated", currentVersion));
             notification->sendEvent();
         }
+
         break;
 
-    // case QApt::ExitStatus:
-
-    //     qDebug() << "QApt::ExitStatus:********************";
-    //     emit upgradeFinished(2);
-    //     break;   
     default:
-       
         break;
     }
 }
 
-/**
- * 升级结束后提示具体有多少内容被更新
- */
 void UpgradeModel::updateStatusBar()
+{}
+
+void UpgradeModel::updateUpgradeProcess()
 {
-    qDebug() << m_backend->packageCount(QApt::Package::Installed) << " Installed "
-             << m_backend->packageCount(QApt::Package::Upgradeable) << " upgradeable "
-             << m_backend->packageCount() << " available";
+    connect(m_trans, SIGNAL(statusDetailsChanged(QString)), this, SLOT(updateLabel(QString)));
+    connect(m_trans, SIGNAL(progressChanged(int)), this, SLOT(updateProgress(int)));
+    connect(m_trans, &QApt::Transaction::errorOccurred,this, [this](QApt::ErrorCode a) {
+        QString notificationText = QString();
+        m_trans->cancel();
+        m_trans->deleteLater();
+        invokeSendEndSig();
+        emit upgradeFinished(2);
 
-    qDebug() << m_backend->packageCount(QApt::Package::ToInstall) << " To install "
-             << m_backend->packageCount(QApt::Package::ToUpgrade) << " to upgrade "
-             << m_backend->packageCount(QApt::Package::ToRemove) << " to remove";
+        switch (a) {
+            case QApt::InitError:
+                notificationText = i18n("Cache could not be initialized");
+                break;
+
+            case QApt::LockError:
+                notificationText = i18n("Package cache could not be locked");
+                break;
+
+            case QApt::DiskSpaceError:
+                notificationText = i18n("There is not enough disk space for an install");
+                break;
+
+            case QApt::FetchError:
+                notificationText = i18n("Fetching packages failed");
+                break;
+
+            case QApt::CommitError:
+                notificationText = i18n("Dpkg encounters an error during commit");
+                break;
+
+            case QApt::AuthError:
+                notificationText = i18n("User has not given proper authentication");
+                break;
+
+            case QApt::WorkerDisappeared:
+                notificationText = i18n("Worker crashes or disappears");
+                break;
+
+            case QApt::UntrustedError:
+                notificationText = i18n("APT prevents the installation of untrusted packages");
+                break;
+
+            case QApt::DownloadDisallowedError:
+                notificationText = i18n("APT configuration prevents downloads");
+                break;
+
+            case QApt::NotFoundError:
+                notificationText = i18n("Selected package does not exist");
+                break;
+
+            case QApt::WrongArchError:
+                notificationText = i18n("A .deb package cannot be installed due to an arch mismatch");
+                break;
+
+            case QApt::MarkingError:
+                notificationText = i18n("Worker cannot mark packages without broken dependencies");
+                break;
+
+            default:
+                notificationText = i18n("An invalid/unknown value");
+                break;
+        }
+
+        KNotification *notification = new KNotification("SystemUpdateDownLoadFinished", KNotification::CloseOnTimeout);
+        notification->setComponentName("settings_main");
+        notification->setTitle(i18n("System Upgrade"));
+        notification->setText(notificationText);
+        notification->sendEvent();
+    });
 }
 
-void UpgradeModel::updateUpgradeProcess(/* QApt::Transaction *trans */){
-    //   m_trans = trans;
-    connect(m_trans, SIGNAL(statusDetailsChanged(QString)),
-            this, SLOT(updateLabel(QString)));
-    connect(m_trans, SIGNAL(progressChanged(int)),
-            this, SLOT(updateProgress(int)));
-    // m_progressBar->setValue(trans->progress());
-}
-
-void UpgradeModel::updateLabel(QString name){
-    qDebug()<< "UpgradeModel => updateLabel::"<< name ;
+void UpgradeModel::updateLabel(QString name) {
     RecordingModel::instance()-> insertRecording(name);
-    // emit labelUpdated(name);
 }
 
-
-void UpgradeModel::updateProgress(int value){
-    qDebug()<< "UpgradeModel => updateProgress::"<< value ;
-    // qDebug()<< "UpgradeModel => updateProgress::"<< m_trans->progress() ;
-     emit progressUpdated(value);
-    // trans->progress()
-
+void UpgradeModel::updateProgress(int value)
+{
+    if (value >= 101) {
+        return;
+    }
+    emit progressUpdated(value);
 }
 
-void UpgradeModel::restartDevice(){
-    // QProcess::execute("shutdown -r -t 0");
-    QProcess::execute("reboot");
+void UpgradeModel::restartDevice()
+{
+    QDBusMessage message = QDBusMessage::createMethodCall("org.kde.Shutdown", "/Shutdown", "org.kde.Shutdown", "logoutAndReboot");
+
+    QDBusMessage response = QDBusConnection::sessionBus().call(message);
+
+    if (response.type() == QDBusMessage::ReplyMessage) {
+        QString value = response.arguments().takeFirst().toString();
+        qWarning() << QString("dbus value =  %1").arg(value);
+    } else {
+        qWarning() << "value method called failed!";
+    }
 }
 
-void UpgradeModel::cacheTransaction(){
-    // m_trans = trans;
-    cacheClear();
-    // m_cancelButton->setEnabled(m_trans->isCancellable());
-    // connect(m_cancelButton, SIGNAL(pressed()),
-    //         m_trans, SLOT(cancel()));
-
-    // Listen for changes to the transaction
-    // connect(m_trans, SIGNAL(cancellableChanged(bool)),
-    //         m_cancelButton, SLOT(setEnabled(bool)));
-    // connect(m_trans, SIGNAL(statusChanged(QApt::TransactionStatus)),
-    //         this, SLOT(onTransactionStatusChanged(QApt::TransactionStatus)));
+void UpgradeModel::cacheTransaction()
+{
     connect(m_trans, SIGNAL(progressChanged(int)),
             this, SLOT(cacheProgressChanged(int)));
     connect(m_trans, SIGNAL(downloadProgressChanged(QApt::DownloadProgress)),
@@ -351,38 +353,19 @@ void UpgradeModel::cacheTransaction(){
             this, SLOT(cacheUpdateETA(quint64)));
 }
 
-
-void UpgradeModel::cacheAddItem(const QString &message)
-{
-
-     qDebug()<< "UpgradeModel => cacheAddItem::"<< message ;
-
-    QStandardItem *n = new QStandardItem();
-    n->setText(message);
-    m_downloadModel->appendRow(n);
-    // m_downloadView->scrollTo(m_downloadModel->indexFromItem(n));
-}
-
-void UpgradeModel::cacheClear()
-{
-    m_downloadModel->clear();
-    m_downloads.clear();
-    // m_totalProgress->setValue(0);
-}
-
-void UpgradeModel::resetNewVersion(){
+void UpgradeModel::resetNewVersion() {
     saveSetting("haveNewVersion" , "false");
 }
 
-QString UpgradeModel::loadSetting( QString key , QString defaultValue ) 
+QString UpgradeModel::loadSetting( QString key , QString defaultValue )
 {
     KSharedConfigPtr profilesConfig = KSharedConfig::openConfig("update_config" , KConfig::SimpleConfig);
     KConfigGroup acProfile(profilesConfig , "UPDATE");
     QString value = acProfile.readEntry(key, defaultValue);
-    return value ; 
+    return value ;
 }
 
-QString UpgradeModel::saveSetting(QString key ,QString value ) 
+QString UpgradeModel::saveSetting(QString key ,QString value )
 {
     KSharedConfigPtr profilesConfig = KSharedConfig::openConfig("update_config" , KConfig::SimpleConfig);
     KConfigGroup acProfile(profilesConfig , "UPDATE");
@@ -391,46 +374,33 @@ QString UpgradeModel::saveSetting(QString key ,QString value )
     return "";
 }
 
-void UpgradeModel::cacheDownloadProgressChanged(const QApt::DownloadProgress &progress){
-    if (!m_downloads.contains(progress.uri())) {
-        cacheAddItem(progress.uri());
-        m_downloads.append(progress.uri());
-    
-    }
+void UpgradeModel::cacheDownloadProgressChanged(const QApt::DownloadProgress &progress)
+{
 }
 
 void UpgradeModel::cacheProgressChanged(int progress)
 {
-    qDebug() << "Upgrade => cacheProgressChanged ::: " << progress ; 
-    if (progress > 100) {
-        // m_totalProgress->setMaximum(0);
-    } 
-    // else if (progress > m_lastRealProgress) {
-    //     // m_totalProgress->setMaximum(100);
-    //     // m_totalProgress->setValue(progress);
-    //     // m_lastRealProgress = progress;
-    // }
 }
 
-void UpgradeModel::cacheUpdateDownloadSpeed(quint64 speed){
-    QString downloadSpeed = i18n("Download rate: %1/s",
-                                speed);
-    qDebug()<< "UpgradeModel cacheUpdateDownloadSpeed::"<< downloadSpeed;
+void UpgradeModel::cacheUpdateDownloadSpeed(quint64 speed)
+{
+    QString downloadSpeed = i18n("Download rate: %1/s", speed);
 }
 
-void UpgradeModel::cacheUpdateETA(quint64 ETA){
+void UpgradeModel::cacheUpdateETA(quint64 ETA) {
     QString timeRemaining;
     int ETAMilliseconds = ETA * 1000;
 
-    if (ETAMilliseconds <= 0 || ETAMilliseconds > 14*24*60*60*1000) {
-        // If ETA is less than zero or bigger than 2 weeks
+    if (ETAMilliseconds <= 0 || ETAMilliseconds > 14 * 24 * 60 * 60 * 1000) {
         timeRemaining = i18n("Unknown time remaining");
     } else {
-        // timeRemaining = i18n("%1 remaining", KGlobal::locale()->prettyFormatDuration(ETAMilliseconds));
         timeRemaining = "44";
     }
+}
 
-    qDebug()<< "UpgradeModel => cacheUpdateETA::"<< timeRemaining;
+bool UpgradeModel::updatingStatus()
+{
+    return qaptupdatorRuning;
 }
 
 Recording::Recording(QObject *parent ,const QString &fileName)
@@ -441,6 +411,7 @@ Recording::Recording(QObject *parent ,const QString &fileName)
 Recording::~Recording()
 {
 }
+
 RecordingModel::RecordingModel(QObject *parent) : QAbstractListModel(parent)
 {
 }
@@ -455,7 +426,6 @@ RecordingModel::~RecordingModel()
 {
     qDeleteAll(m_recordings);
 }
-
 
 QHash<int, QByteArray> RecordingModel::roleNames() const
 {
@@ -479,14 +449,12 @@ int RecordingModel::rowCount(const QModelIndex &parent) const
     return m_recordings.count();
 }
 
-
 void RecordingModel::insertRecording(QString fileName)
 {
-        beginInsertRows({}, m_recordings.count(), m_recordings.count());
-        Recording *rd = new Recording(this, fileName);
-        m_recordings.append(rd);
-        qDebug()<<"更新文本:: "<<m_recordings.count();
-        endInsertRows();
+    beginInsertRows({}, m_recordings.count(), m_recordings.count());
+    Recording *rd = new Recording(this, fileName);
+    m_recordings.append(rd);
+    endInsertRows();
 }
 
 void RecordingModel::deleteRecording(const int index)
@@ -495,5 +463,3 @@ void RecordingModel::deleteRecording(const int index)
     m_recordings.removeAt(index);
     endRemoveRows();
 }
-
-

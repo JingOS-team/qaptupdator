@@ -23,8 +23,8 @@ find_package(DebconfKDE REQUIRED)
 
 set(CMAKE_CXX_FLAGS "-o0")
 set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON) 
-set(CMAKE_INCLUDE_CURRENT_DIR ON) 
+set(CMAKE_AUTORCC ON)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(qaptupdator_SRCS main.cpp
 	#qapttest.cpp
@@ -42,7 +42,7 @@ add_executable(qaptupdator ${qaptupdator_SRCS})
 target_link_libraries(qaptupdator
 	DebconfKDE::Main
 	KF5::KIOCore
-	KF5::KIOWidgets 
+	KF5::KIOWidgets
 	KF5::XmlGui
 	KF5::I18n
 	KF5::Notifications
@@ -50,7 +50,8 @@ target_link_libraries(qaptupdator
 	KF5::DBusAddons
 	QApt::Main
 	Qt5::Qml
-	)
+)
 
 install(TARGETS qaptupdator ${INSTALL_TARGETS_DEFAULT_ARGS} )
+install(FILES org.jingos.qaptupdator.desktop DESTINATION ${KDE_INSTALL_APPDIR})
 ki18n_install(po)

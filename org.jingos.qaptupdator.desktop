@@ -1,0 +1,16 @@
+#
+# SPDX-FileCopyrightText: 2020 George Florea Bănuș <georgefb899@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+[Desktop Entry]
+Name=qaptupdator
+Name[zh_CN]=系统更新器
+Exec=qaptupdator
+Icon=qaptupdator
+Type=Application
+Categories=Qt;KDE;
+Terminal=false
+NoDisplay=true
+PanelBehavor=3

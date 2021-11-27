@@ -1,5 +1,6 @@
 /***************************************************************************
  *   Copyright © 2010 Jonathan Thomas <echidnaman@kubuntu.org>             *
+ *               2021 Bob <pengbo·wu@jingos.com>                           *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or         *
  *   modify it under the terms of the GNU General Public License as        *
@@ -19,42 +20,27 @@
  ***************************************************************************/
 
 #include "qapttest.h"
-
+#include "UpgradeModel.h"
 #include <QApplication>
 #include <QCommandLineOption>
 #include <QCommandLineParser>
 #include <QDebug>
 #include <KAboutData>
-// #include <KPackage/PackageLoader>
 #include <KPluginLoader>
 #include <KPluginMetaData>
-
-// #include <kapplication.h>
-// #include <k4aboutdata.h>
-// #include <KDBusService>
-
 #include <QObject>
-
-#include <QDebug>
 #include <QQmlContext>
 #include <QQmlApplicationEngine>
-#include <QCommandLineOption>
-#include <QCommandLineParser>
 #include <KDBusService>
 #include <KLocalizedString>
-
-#include <QApplication>
-
-#include "UpgradeModel.h"
-
 
 int main(int argc, char **argv)
 {
 	QApplication app(argc, argv);
 
     KLocalizedString::setApplicationDomain("qaptupdator");
-	KAboutData aboutData("qaptupdator", i18n("qaptupdator"), "0.1", i18n("Touch-friendly settings application."), 
-        KAboutLicense::GPL, i18n("Copyright 2011-2015, Sebastian Kügler"));
+	KAboutData aboutData("qaptupdator", i18n("qaptupdator"), "0.1", i18n("Touch-friendly settings application."),
+    KAboutLicense::GPL, i18n("Copyright 2011-2015, Sebastian Kügler"));
     aboutData.addAuthor(i18n("Sebastian Kügler"), i18n("Maintainer"), "sebas@kde.org");
     aboutData.addAuthor(i18n("Marco Martin"), i18n("Maintainer"), "mart@kde.org");
     aboutData.setDesktopFileName("org.jingos.qaptupdator");
@@ -64,21 +50,16 @@ int main(int argc, char **argv)
 
     QCommandLineParser parser;
 
-    const QCommandLineOption agruments(
-        {QStringLiteral("s"), QStringLiteral("sysversion")}, 
+    const QCommandLineOption agruments (
+        {QStringLiteral("s"), QStringLiteral("sysversion")},
         i18n("system version"), i18n("sysversion"));
 
-    parser.addOption(agruments);    
+    parser.addOption(agruments);
     aboutData.setupCommandLine(&parser);
-
     parser.process(app);
     aboutData.processCommandLine(&parser);
 
     const QString module = parser.value(agruments);
-    // qDebug() << "4444444444444444: " << module;
-    
-    // UpgradeModel *um = new UpgradeModel();
-    // um->setCurrentVersion(module);
 
     QQmlApplicationEngine engine;
 
@@ -87,8 +68,12 @@ int main(int argc, char **argv)
     qmlRegisterSingletonType<RecordingModel>("org.jingos.updator", 1, 0, "RecordingModel", [] (QQmlEngine *, QJSEngine *) -> QObject* {
         return RecordingModel::instance();
     });
-    engine.rootContext()->setContextProperty("currentVersion", module);
+    QObject::connect(service, &KDBusService::activateRequested, RecordingModel::instance(), [](const QStringList &arguments) {
+       emit RecordingModel::instance() -> activateRequested();
+    });
 
+    engine.rootContext()->setContextProperty("currentVersion", module);
     engine.load(QUrl(QStringLiteral("qrc:/qml/update.qml")));
+
     return app.exec();
 }

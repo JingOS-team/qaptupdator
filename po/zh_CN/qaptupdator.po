@@ -201,4 +201,74 @@ msgstr "系统更新"
 msgid "Prepare all packages..."
 msgstr "正在准备更新包..."
 
+msgid "Software Update"
+msgstr "系统更新"
 
+msgid "System upgrade complete,please restart the device"
+msgstr "系统更新完成，请重启设备"
+
+msgid "Update log:"
+msgstr "更新日志："
+
+msgid "Before updating, please make sure your device is charged. During the updating process, please connect to the Internet throughout."
+msgstr "升级时请保持JingPad电量正常，网络连接正常。"
+
+#, kde-format
+msgid "An error was encountered while downloading packages"
+msgstr "下载安装包时失败"
+
+#, kde-format
+msgid "System %1 has been updated"
+msgstr "系统已更新到版本 %1"
+
+#, kde-format
+msgid "Cache could not be initialized"
+msgstr "缓存无法初始化"
+
+#, kde-format
+msgid "Package cache could not be locked"
+msgstr "无法锁定包缓存"
+
+#, kde-format
+msgid "There is not enough disk space for an install"
+msgstr "磁盘空间不足"
+
+#, kde-format
+msgid "Fetching packages failed"
+msgstr "获取包失败"
+
+#, kde-format
+msgid "Dpkg encounters an error during commit"
+msgstr "Dpkg错误（发生在提交时）"
+
+#, kde-format
+msgid "User has not given proper authentication"
+msgstr "用户没有给出正确的身份验证"
+
+#, kde-format
+msgid "Worker crashes or disappears"
+msgstr "更新程序崩溃"
+
+#, kde-format
+msgid "APT prevents the installation of untrusted packages"
+msgstr "APT已阻止安装不安全的包"
+
+#, kde-format
+msgid "APT configuration prevents downloads"
+msgstr "由于APT程序配置阻止下载"
+
+#, kde-format
+msgid "Selected package does not exist"
+msgstr "已选择安装的包不存在"
+
+#, kde-format
+msgid "A .deb package cannot be installed due to an arch mismatch"
+msgstr "安装包不能被安装（安装包架构不匹配）"
+
+#, kde-format
+msgid "Worker cannot mark packages without broken dependencies"
+msgstr "安装包不能被安装（依赖关系将会被破坏）"
+
+#, kde-format
+msgid "An invalid/unknown value"
+msgstr "未知错误"

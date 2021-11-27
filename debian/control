@@ -1,0 +1,51 @@
+Source: qaptupdator
+Section: kde
+Priority: optional
+Maintainer: Debian/Kubuntu KDE Extras Team <pkg-kde-extras@lists.alioth.debian.org>
+Uploaders: Sune Vuorela <sune@debian.org>,
+           Kai Wasserbäch <curan@debian.org>,
+           Floris-Andrei Stoica-Marcu <floris.sm@gmail.com>,
+           Maximiliano Curia <maxy@debian.org>,
+           José Manuel Santamaría Lema <panfaust@gmail.com>
+Build-Depends: cmake (>= 2.8.12),
+               debhelper (>= 9),
+               extra-cmake-modules (>= 0.0.14),
+               libapt-pkg-dev (>= 0.8.0),
+               libdebconf-kde-dev (>= 1.0.0),
+               libglib2.0-dev,
+               libgstreamer-plugins-base1.0-dev,
+               libgstreamer1.0-dev,
+               libkf5auth-dev (>= 5.0.0),
+               libkf5coreaddons-dev (>= 5.0.0),
+               libkf5i18n-dev (>= 5.0.0),
+               libkf5iconthemes-dev (>= 5.0.0),
+               libkf5kio-dev (>= 5.0.0),
+               libkf5plasma-dev,
+               libkf5runner-dev (>= 5.0.0),
+               libkf5textwidgets-dev (>= 5.0.0),
+               libkf5widgetsaddons-dev (>= 5.0.0),
+               libkf5windowsystem-dev (>= 5.0.0),
+               libpolkit-qt5-1-dev (>= 0.112),
+               libxapian-dev,
+               pkg-config,
+               pkg-kde-tools (>> 0.15.15),
+               qtbase5-dev (>= 5.2.0),
+               qttools5-dev,
+               qttools5-dev-tools,
+               extra-cmake-modules,
+               libxapian-dev,
+               libpolkit-qt5-1-dev,
+               libglib2.0-dev,
+               qttools5-dev,
+               qtdeclarative5-dev,
+               libkf5kdelibs4support-dev,
+               libqapt-dev,
+               qtquickcontrols2-5-dev,
+               libkf5notifications-dev,
+               libkf5dbusaddons-dev,
+               libkf5declarative-dev
+
+Package: qaptupdator
+Architecture: any
+Depends: qapt-deb-installer
+Description: qapt-updator, kde front for dist upgrade.

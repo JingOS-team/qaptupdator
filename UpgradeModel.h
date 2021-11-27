@@ -1,6 +1,7 @@
 /***************************************************************************
  *   Copyright © 2010 Jonathan Thomas <echidnaman@kubuntu.org>             *
  *               2021 Wang Rui <wangrui@jingos.com>                        *
+ *               2021 Bob <pengbo·wu@jingos.com>                           *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or         *
  *   modify it under the terms of the GNU General Public License as        *
@@ -27,6 +28,10 @@
 #include <QStandardItemModel>
 #include <QAbstractListModel>
 #include <QGuiApplication>
+#include <QDBusConnection>
+#include <QDebug>
+#include <QDBusError>
+#include <QDBusMessage>
 
 namespace QApt {
     class Backend;
@@ -35,7 +40,7 @@ namespace QApt {
     class DownloadProgress;
 }
 
-/**
+/*
  * This class serves as the main window for Muon.  It handles the
  * menus, toolbars, and status bars.
  *
@@ -45,64 +50,55 @@ namespace QApt {
 class UpgradeModel : public QObject
 {
     Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "com.jingos.startup.updating")
 public:
     UpgradeModel(QObject *parent = nullptr);
     ~UpgradeModel();
 
-    void setCurrentVersion(QString version);
     QString getCurrentVersion();
     void registSysDlgAction();
-
-    // QSize sizeHint() const Q_DECL_OVERRIDE;
-    // bool queryClose() Q_DECL_OVERRIDE;
 
 private:
     QApt::Backend *m_backend;
     QApt::Package *m_package;
     QApt::Transaction *m_trans;
+    QApt::DownloadProgress *m_down;
 
-    QStandardItemModel *m_downloadModel;
-    QStringList m_downloads;
-
-    int updateStatus; 
-
-    bool m_reloading;
+    int updateStatus;
     QString currentVersion;
+    bool m_reloading;
+    bool qaptupdatorRuning;
 
 signals:
     void labelUpdated(QString type);
     void progressUpdated(int value);
     void upgradeFinished(int result);
     void upgradeStatusChanged(int status);
+    void sigEnd();
 
 public Q_SLOTS:
-    void init();
-    void initObject();
     Q_INVOKABLE void updateCache();
-    void commitAction();
+    Q_INVOKABLE void init();
     Q_INVOKABLE void upgrade();
     Q_INVOKABLE void resetNewVersion();
-    QString loadSetting(QString key , QString defaultValue ); 
-    QString saveSetting(QString key , QString value ) ;
+    QString loadSetting(QString key , QString defaultValue );
+    QString saveSetting(QString key , QString value );
+    void setCurrentVersion(QString version);
+    void invokeSendEndSig();
+    void commitAction();
     void onTransactionStatusChanged(QApt::TransactionStatus status);
-    void updateStatusBar();
     void updateUpgradeProcess();
-    void updateLabel(QString name);
     void updateProgress(int value);
     void slotReceiveDbusCancel();
-
-
-    // void onTransactionStatusChanged(QApt::TransactionStatus status);
+    void updateLabel(QString name);
+    void updateStatusBar();
     void cacheProgressChanged(int progress);
     void cacheDownloadProgressChanged(const QApt::DownloadProgress &progress);
     void cacheUpdateDownloadSpeed(quint64 speed);
     void cacheUpdateETA(quint64 ETA);
-    void cacheAddItem(const QString &message);
-    void cacheClear();
     void cacheTransaction();
     void restartDevice();
-
-    
+    bool updatingStatus();
 };
 
 /*****************************************/
@@ -111,56 +107,59 @@ class Recording : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString fileName READ fileName WRITE setFileName NOTIFY propertyChanged)
+
 public:
     explicit Recording(QObject *parent = nullptr,const QString &fileName = {});
     ~Recording();
 
-    QString fileName() const
-    {
+    QString fileName() const {
         return m_fileName;
     }
 
     void setFileName(const QString &fileName);
 
 private:
-    QString m_fileName;    
+    QString m_fileName;
+
 signals:
-    void propertyChanged();    
-};    
+    void propertyChanged();
+};
 
 
 /*****************************************/
 class RecordingModel;
 static RecordingModel *s_recordingModel = nullptr;
+
 class RecordingModel : public QAbstractListModel
 {
     Q_OBJECT
 public:
+    Q_INVOKABLE void insertRecording(QString fileName);
+    Q_INVOKABLE void deleteRecording(const int index);
+
     enum Roles {
         RecordingRole = Qt::UserRole
     };
 
-    static RecordingModel* instance()
-    {
+    static RecordingModel* instance() {
         if (!s_recordingModel) {
             s_recordingModel = new RecordingModel(qApp);
         }
         return s_recordingModel;
     }
 
-
     QHash<int, QByteArray> roleNames() const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
 
-    Q_INVOKABLE void insertRecording(QString fileName);
-    Q_INVOKABLE void deleteRecording(const int index);
+signals:
+    void activateRequested();
 
 private:
     explicit RecordingModel(QObject *parent = nullptr);
     ~RecordingModel();
 
-    QList<Recording*> m_recordings;    
+    QList<Recording*> m_recordings;
 };
 
 #endif // UPGRADEMODEL_H
